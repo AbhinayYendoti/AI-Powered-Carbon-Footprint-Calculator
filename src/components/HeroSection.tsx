@@ -4,9 +4,10 @@ import { Leaf, Calculator, TrendingDown } from "lucide-react";
 
 interface HeroSectionProps {
   onGetStarted: () => void;
+  onLearnMore: () => void;
 }
 
-export const HeroSection = ({ onGetStarted }: HeroSectionProps) => {
+export const HeroSection = ({ onGetStarted, onLearnMore }: HeroSectionProps) => {
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden">
       {/* Background Image */}
@@ -45,17 +46,23 @@ export const HeroSection = ({ onGetStarted }: HeroSectionProps) => {
             <Button 
               variant="eco" 
               size="lg" 
-              className="px-8 py-6 text-lg"
+              className="rounded-full px-10 py-6 text-lg font-bold shadow-lg bg-gradient-to-r from-green-500 via-blue-400 to-green-400 hover:scale-105 hover:shadow-2xl transition-transform duration-200"
               onClick={onGetStarted}
             >
-              <Calculator className="w-5 h-5" />
+              <Calculator className="w-5 h-5 mr-2" />
               Start Calculator
             </Button>
-            <Button variant="outline" size="lg" className="px-8 py-6 text-lg">
-              <TrendingDown className="w-5 h-5" />
+            <Button 
+              variant="outline" 
+              size="lg" 
+              className="rounded-full px-10 py-6 text-lg font-bold border-2 border-green-500 text-green-600 hover:bg-green-50 hover:scale-105 transition-transform duration-200"
+              onClick={onLearnMore}
+            >
+              <Leaf className="w-5 h-5 mr-2" />
               Learn More
             </Button>
           </div>
+          <div className="text-sm text-muted-foreground mt-2">Takes less than 2 minutes to complete!</div>
           
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-12">

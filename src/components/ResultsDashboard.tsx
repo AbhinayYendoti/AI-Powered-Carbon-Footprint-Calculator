@@ -15,6 +15,9 @@ import {
   ArrowLeft,
   Download
 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 interface CarbonData {
   transport: {
@@ -39,10 +42,16 @@ interface CarbonData {
 
 interface ResultsDashboardProps {
   data: CarbonData;
+  result?: any;
   onRestart: () => void;
 }
 
 export const ResultsDashboard = ({ data, onRestart }: ResultsDashboardProps) => {
+  const [actionPlanOpen, setActionPlanOpen] = useState(false);
+  const [actionPlan, setActionPlan] = useState<string[]>([]);
+  const [loadingPlan, setLoadingPlan] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
   // Simplified carbon calculation (in real app, use scientific emission factors)
   const calculateEmissions = () => {
     const transport = (data.transport.carKm * 52 * 0.12) + // kg CO2 per km
@@ -119,12 +128,113 @@ export const ResultsDashboard = ({ data, onRestart }: ResultsDashboardProps) => 
 
   const impactLevel = getImpactLevel(emissions.total);
 
+  const handleActionPlan = async () => {
+    setLoadingPlan(true);
+    setActionPlanOpen(true);
+    try {
+      // Use the correct backend URL with port 3002
+      const res = await fetch('http://localhost:3002/api/actionplan/sampleuser');
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const data = await res.json();
+      setActionPlan(data.actions || [
+        'Use public transport twice a week instead of driving',
+        'Switch to LED bulbs',
+        'Reduce beef consumption to once a week',
+        'Install a programmable thermostat',
+        'Buy local and seasonal food',
+        'Use reusable water bottles and coffee cups',
+        'Unplug electronics when not in use',
+        'Consider carpooling or biking for short trips'
+      ]);
+    } catch (e) {
+      console.error('Action plan error:', e);
+      // Fallback action plan if API fails
+      setActionPlan([
+        'Use public transport twice a week instead of driving',
+        'Switch to LED bulbs',
+        'Reduce beef consumption to once a week',
+        'Install a programmable thermostat',
+        'Buy local and seasonal food',
+        'Use reusable water bottles and coffee cups',
+        'Unplug electronics when not in use',
+        'Consider carpooling or biking for short trips'
+      ]);
+      toast({ 
+        title: 'Using offline recommendations', 
+        description: 'Could not connect to server, showing default action plan.',
+        variant: 'default'
+      });
+    } finally {
+      setLoadingPlan(false);
+    }
+  };
+
+  const handleDownload = async (format: 'pdf' | 'csv') => {
+    setDownloading(true);
+    try {
+      const res = await fetch(`http://localhost:3002/api/report/sampleuser?format=${format}`);
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = format === 'pdf' ? 'carbon_report.pdf' : 'carbon_report.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast({ title: 'Report downloaded successfully!' });
+    } catch (e) {
+      console.error('Download error:', e);
+      toast({ 
+        title: 'Download failed', 
+        description: 'Could not connect to server. Please try again later.',
+        variant: 'destructive' 
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
       <div className="text-center space-y-4">
         <h2 className="text-3xl font-bold">Your Carbon Footprint Results</h2>
         <p className="text-muted-foreground">Based on your lifestyle inputs, here's your environmental impact</p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center mt-4">
+          <Button
+            variant="eco"
+            className="px-6 py-4 text-base shadow-md bg-gradient-to-r from-green-500 via-blue-400 to-green-400 hover:scale-105 hover:shadow-lg transition-transform duration-200"
+            onClick={handleActionPlan}
+            disabled={loadingPlan}
+          >
+            <Lightbulb className="w-5 h-5 mr-2" />
+            Start Action Plan
+          </Button>
+          <Button
+            variant="outline"
+            className="px-6 py-4 text-base"
+            onClick={() => handleDownload('pdf')}
+            disabled={downloading}
+          >
+            <Download className="w-5 h-5 mr-2" />
+            Download PDF
+          </Button>
+          <Button
+            variant="outline"
+            className="px-6 py-4 text-base"
+            onClick={() => handleDownload('csv')}
+            disabled={downloading}
+          >
+            <Download className="w-5 h-5 mr-2" />
+            Download CSV
+          </Button>
+        </div>
       </div>
 
       {/* Main Results */}
@@ -252,21 +362,26 @@ export const ResultsDashboard = ({ data, onRestart }: ResultsDashboardProps) => 
         </CardContent>
       </Card>
 
-      {/* Actions */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-center">
-        <Button variant="outline" onClick={onRestart}>
-          <ArrowLeft className="w-4 h-4" />
-          Recalculate
-        </Button>
-        <Button variant="eco">
-          <Download className="w-4 h-4" />
-          Download Report
-        </Button>
-        <Button variant="success">
-          <Leaf className="w-4 h-4" />
-          Start Action Plan
-        </Button>
-      </div>
+      {/* Action Plan Modal */}
+      <Dialog open={actionPlanOpen} onOpenChange={setActionPlanOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Personalized Action Plan</DialogTitle>
+            <DialogDescription>
+              Steps you can take to reduce your carbon footprint
+            </DialogDescription>
+          </DialogHeader>
+          {loadingPlan ? (
+            <div className="text-center py-8">Loading...</div>
+          ) : (
+            <ul className="list-disc pl-6 space-y-2">
+              {actionPlan.map((action, i) => (
+                <li key={i} className="text-base text-foreground">{action}</li>
+              ))}
+            </ul>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
