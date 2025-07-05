@@ -1,4 +1,4 @@
-# 🌱 Carbon Wise AI Friend
+# 🌱 AI-Powered-Carbon-Footprint-Calculator
 
 > **Carbon Footprint Calculator with AI Assistant & ML-Enhanced Recommendations**
 
