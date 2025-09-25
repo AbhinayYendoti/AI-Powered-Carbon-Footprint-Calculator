@@ -54,7 +54,9 @@ export interface CalculationResult {
   anomalies?: any[];
 }
 
-const API_BASE_URL = 'http://localhost:3002/api';
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL
+  ? `${(import.meta as any).env.VITE_API_URL}/api`
+  : 'http://localhost:3002/api';
 
 class CarbonService {
   private static instance: CarbonService;
@@ -70,7 +72,29 @@ class CarbonService {
 
   async calculateFootprint(data: CarbonData): Promise<CalculationResult> {
     try {
-      const response = await axios.post(`${API_BASE_URL}/calculate`, data);
+      // Map UI fields (weekly/monthly inputs) to backend schema (yearly where required)
+      const averagePublicTransportSpeedKmPerHour = 20; // rough average for buses/metro
+      const payload = {
+        transport: {
+          carKm: (data.transport.carKm || 0) * 52, // weekly km -> yearly km
+          publicKm: (data.transport.publicTransport || 0) * 52 * averagePublicTransportSpeedKmPerHour, // hours/week -> km/year
+          planeHours: data.transport.flightHours || 0 // already yearly
+        },
+        home: {
+          electricity: (data.home.electricity || 0) * 12, // monthly kWh -> yearly kWh
+          naturalGas: (data.home.gas || 0) * 12 // monthly therms -> yearly therms
+        },
+        diet: {
+          dietType: data.diet.type || 'mixed',
+          meatServings: data.diet.meatServings || 0 // per week; server multiplies by 52
+        },
+        shopping: {
+          clothing: data.shopping.clothing || 0, // assumed yearly $ in UI
+          electronics: data.shopping.electronics || 0 // assumed yearly $ in UI
+        }
+      };
+
+      const response = await axios.post(`${API_BASE_URL}/calculate`, payload);
       
       if (response.data.success) {
         return response.data;
@@ -100,6 +124,42 @@ class CarbonService {
     } catch (error) {
       console.error('Error sending chat message:', error);
       return "I'm sorry, I'm having trouble connecting right now. Please try again later.";
+    }
+  }
+
+  async downloadReport(userId: string, format: 'pdf' | 'csv' = 'pdf'): Promise<void> {
+    const url = `${API_BASE_URL.replace('/api','')}/api/report/${encodeURIComponent(userId)}?format=${format}`;
+    // Trigger browser download
+    window.open(url, '_blank');
+  }
+
+  async sendReportEmail(params: {
+    to?: string;
+    subject?: string;
+    text?: string;
+    report?: {
+      name: string;
+      totalEmissions: number;
+      transport: number;
+      home: number;
+      diet: number;
+      shopping: number;
+    };
+    format?: 'pdf' | 'csv';
+  }): Promise<boolean> {
+    try {
+      const body = {
+        to: params.to || 'yendotiabhi602@gmail.com',
+        subject: params.subject || 'Carbon Footprint Report',
+        text: params.text || 'Please find your report attached.',
+        report: params.report,
+        format: params.format || 'pdf'
+      };
+      const res = await axios.post(`${API_BASE_URL}/send-report`, body);
+      return !!res.data?.success;
+    } catch (e) {
+      console.error('Error sending report email:', e);
+      return false;
     }
   }
 

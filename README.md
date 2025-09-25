@@ -2,7 +2,9 @@
 
 > **Carbon Footprint Calculator with AI Assistant & ML-Enhanced Recommendations**
 
-A comprehensive web application that helps users calculate their carbon footprint using scientific emission factors, provides personalized AI-powered recommendations, and includes machine learning models for prediction and anomaly detection.
+Primary client: Android (Kotlin + Jetpack Compose) using this Node.js backend. The included React app is an optional web demo.
+
+A comprehensive application that helps users calculate their carbon footprint using scientific emission factors, provides personalized AI-powered recommendations, and includes machine learning models for prediction and anomaly detection.
 
 ## ✨ Features
 
@@ -39,9 +41,9 @@ A comprehensive web application that helps users calculate their carbon footprin
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 18+ 
-- npm or yarn
-- Modern web browser
+- JDK 17
+- Gradle (wrapper included)
+- Android Studio (for Kotlin app)
 
 ### Installation
 
@@ -63,19 +65,14 @@ A comprehensive web application that helps users calculate their carbon footprin
    cd ..
    ```
 
-4. **Start the development servers**
+4. **Start the Kotlin backend**
    ```bash
-   # Start both frontend and backend
-   npm run dev:full
-   
-   # Or start them separately:
-   npm run dev          # Frontend (Vite)
-   npm run server       # Backend (Express)
+   cd kotlin-server
+   ./gradlew run
    ```
 
-5. **Open your browser**
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:3002
+5. **Backend API**
+   - Kotlin Ktor: http://localhost:3002
 
 ## 🏗️ Architecture
 
@@ -94,15 +91,13 @@ src/
 └── hooks/               # Custom React hooks
 ```
 
-### Backend (Node.js + Express)
+### Backend (Kotlin + Ktor)
 ```
-server/
-├── index.js             # Main server file
-├── package.json         # Server dependencies
-└── ml/                  # Machine learning models
-    ├── recommender.js   # Collaborative filtering
-    ├── predictor.js     # Time series prediction
-    └── anomaly.js       # Anomaly detection
+kotlin-server/
+├── build.gradle.kts
+├── settings.gradle.kts
+├── src/main/kotlin/com/carbonwise/Application.kt
+└── src/main/resources/application.conf
 ```
 
 ## 🧠 Machine Learning Models
@@ -169,23 +164,43 @@ The application uses scientifically validated emission factors:
 
 ## 🔧 Configuration
 
-### Environment Variables
+### Environment Variables (Backend)
 ```bash
-# Frontend (.env)
-VITE_API_URL=http://localhost:3002
+# AI provider
+AI_PROVIDER=gemini # or openai
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-3.5-turbo
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-1.5-flash
 
-# Backend (.env)
+# Email (Gmail SMTP)
+GMAIL_USER=yendotiabhi602@gmail.com
+GMAIL_PASS=your_gmail_app_password
+
+# Server
 PORT=3002
 NODE_ENV=development
 ```
+Notes:
+- Never commit real secrets. Use an App Password for Gmail.
+- If `to` is not provided to `/api/send-report`, emails default to `GMAIL_USER`.
 
 ### API Endpoints
 ```
-POST /api/calculate     # Calculate carbon footprint
-POST /api/chat         # AI chat assistant
-POST /api/save-session # Save user session
-GET  /api/session/:id  # Retrieve session
+POST /api/calculate        # Calculate carbon footprint
+POST /api/chat             # AI chat assistant (OpenAI/Gemini)
+POST /api/save-session     # Save user session
+GET  /api/session/:id      # Retrieve session
+GET  /api/actionplan/:userid # Sample AI action plan
+GET  /api/report/:userid     # Download PDF/CSV (?format=pdf|csv)
+POST /api/send-report        # Email report via Gmail SMTP
 ```
+
+### Android (Kotlin) Integration Notes
+- Use Retrofit to call the above endpoints.
+- Charts: MPAndroidChart for pie/line/bar.
+- PDF: PdfDocument/iText on-device or call `/api/report`.
+- Email: call `/api/send-report` (defaults to `GMAIL_USER` if `to` omitted).
 
 ## 📈 Performance
 

@@ -18,6 +18,7 @@ import {
 import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { carbonService } from "@/services/carbonService";
 
 interface CarbonData {
   transport: {
@@ -174,27 +175,36 @@ export const ResultsDashboard = ({ data, onRestart }: ResultsDashboardProps) => 
   const handleDownload = async (format: 'pdf' | 'csv') => {
     setDownloading(true);
     try {
-      const res = await fetch(`http://localhost:3002/api/report/sampleuser?format=${format}`);
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = format === 'pdf' ? 'carbon_report.pdf' : 'carbon_report.csv';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-      toast({ title: 'Report downloaded successfully!' });
+      await carbonService.downloadReport('sampleuser', format);
+      toast({ title: 'Report download started' });
     } catch (e) {
       console.error('Download error:', e);
-      toast({ 
-        title: 'Download failed', 
-        description: 'Could not connect to server. Please try again later.',
-        variant: 'destructive' 
+      toast({ title: 'Download failed', variant: 'destructive' });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleEmailMe = async () => {
+    setDownloading(true);
+    try {
+      const ok = await carbonService.sendReportEmail({
+        // to omitted → defaults to yendotiabhi602@gmail.com on server
+        report: {
+          name: 'Report',
+          totalEmissions: emissions.total,
+          transport: emissions.transport,
+          home: emissions.home,
+          diet: emissions.diet,
+          shopping: emissions.shopping
+        },
+        format: 'pdf'
       });
+      if (ok) toast({ title: 'Report emailed to you' });
+      else toast({ title: 'Email failed', variant: 'destructive' });
+    } catch (e) {
+      console.error('Email error:', e);
+      toast({ title: 'Email failed', variant: 'destructive' });
     } finally {
       setDownloading(false);
     }
@@ -233,6 +243,15 @@ export const ResultsDashboard = ({ data, onRestart }: ResultsDashboardProps) => 
           >
             <Download className="w-5 h-5 mr-2" />
             Download CSV
+          </Button>
+          <Button
+            variant="outline"
+            className="px-6 py-4 text-base"
+            onClick={handleEmailMe}
+            disabled={downloading}
+          >
+            <Download className="w-5 h-5 mr-2" />
+            Email Me PDF
           </Button>
         </div>
       </div>
