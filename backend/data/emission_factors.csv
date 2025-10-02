@@ -1,0 +1,39 @@
+category,emission_factor_kg_co2_per_unit,unit,description
+electricity,0.5,kWh,Grid electricity emission factor (varies by country)
+natural_gas,2.3,liter,Natural gas combustion
+gasoline,2.31,liter,Gasoline combustion for vehicles
+diesel,2.68,liter,Diesel combustion for vehicles
+flight_domestic,0.255,km,Domestic flight per passenger km
+flight_international,0.195,km,International flight per passenger km
+flight_short_haul,90.0,hour,Short haul flights per hour
+flight_long_haul,120.0,hour,Long haul flights per hour
+bus,0.089,km,Bus transport per passenger km
+train,0.041,km,Train transport per passenger km
+subway,0.028,km,Subway/metro per passenger km
+car_small,0.12,km,Small car per km
+car_medium,0.15,km,Medium car per km
+car_large,0.18,km,Large car per km
+beef,60.0,kg,Beef production
+pork,12.1,kg,Pork production
+chicken,6.9,kg,Chicken production
+fish,6.1,kg,Fish production
+dairy,3.2,kg,Dairy products
+eggs,4.2,kg,Eggs
+vegetables,2.0,kg,Vegetables
+fruits,1.1,kg,Fruits
+grains,2.5,kg,Grains and cereals
+diet_vegan,2.89,day,Daily emissions for vegan diet
+diet_vegetarian,3.81,day,Daily emissions for vegetarian diet
+diet_mixed,7.26,day,Daily emissions for mixed diet
+clothing_cotton,8.0,kg,Cotton clothing
+clothing_synthetic,9.5,kg,Synthetic clothing
+clothing_general,0.01,dollar,General clothing spend
+electronics_smartphone,70.0,unit,Smartphone production
+electronics_laptop,300.0,unit,Laptop production
+electronics_general,0.02,dollar,General electronics spend
+heating_oil,2.96,liter,Heating oil
+heating_electric,0.5,kWh,Electric heating (grid factor)
+heating_gas,2.3,liter,Gas heating
+water_usage,0.36,liter,Water treatment and distribution
+waste_landfill,1.0,kg,Waste to landfill
+waste_recycling,0.1,kg,Waste recycling
