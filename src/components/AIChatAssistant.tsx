@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { geminiService, type CarbonFootprintData } from "@/services/geminiService";
+import { carbonService } from "@/services/carbonService";
 
 interface Message {
   id: string;
@@ -60,14 +61,23 @@ export const AIChatAssistant = ({ onSuggestion, context, carbonData }: AIChatAss
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
+    // Smooth scroll via sentinel element
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Fallback: force scroll container to bottom
+    const el = scrollAreaRef.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
   };
 
   useEffect(() => {
-    scrollToBottom();
+    // Delay to allow DOM paint before scrolling
+    const id = requestAnimationFrame(scrollToBottom);
+    return () => cancelAnimationFrame(id);
   }, [messages]);
 
   const sendMessage = async (text: string) => {
@@ -81,36 +91,44 @@ export const AIChatAssistant = ({ onSuggestion, context, carbonData }: AIChatAss
     };
 
     setMessages(prev => [...prev, userMessage]);
+    requestAnimationFrame(scrollToBottom);
     setInputValue('');
     setIsLoading(true);
 
     try {
       let response: string;
 
-      // Use specific methods based on the message content
-      if (text.toLowerCase().includes('recommend') || text.toLowerCase().includes('tips') || text.toLowerCase().includes('advice')) {
-        if (carbonData) {
-          response = await geminiService.getPersonalizedRecommendations(carbonData);
+      const useGemini = geminiService.isReady();
+
+      if (useGemini) {
+        // Use specific methods based on the message content
+        if (text.toLowerCase().includes('recommend') || text.toLowerCase().includes('tips') || text.toLowerCase().includes('advice')) {
+          if (carbonData) {
+            response = await geminiService.getPersonalizedRecommendations(carbonData);
+          } else {
+            response = await geminiService.sendChatMessage(text);
+          }
+        } else if (text.toLowerCase().includes('explain') && carbonData) {
+          // Extract category if mentioned
+          const categories = ['transport', 'home', 'diet', 'shopping'];
+          const mentionedCategory = categories.find(cat => text.toLowerCase().includes(cat));
+          
+          if (mentionedCategory) {
+            response = await geminiService.explainCarbonImpact(
+              mentionedCategory, 
+              carbonData.breakdown[mentionedCategory as keyof typeof carbonData.breakdown], 
+              carbonData
+            );
+          } else {
+            response = await geminiService.getCarbonFootprintAdvice(carbonData, text);
+          }
         } else {
-          response = await geminiService.sendChatMessage(text);
-        }
-      } else if (text.toLowerCase().includes('explain') && carbonData) {
-        // Extract category if mentioned
-        const categories = ['transport', 'home', 'diet', 'shopping'];
-        const mentionedCategory = categories.find(cat => text.toLowerCase().includes(cat));
-        
-        if (mentionedCategory) {
-          response = await geminiService.explainCarbonImpact(
-            mentionedCategory, 
-            carbonData.breakdown[mentionedCategory as keyof typeof carbonData.breakdown], 
-            carbonData
-          );
-        } else {
-          response = await geminiService.getCarbonFootprintAdvice(carbonData, text);
+          // General chat with carbon context if available
+          response = await geminiService.sendChatMessage(text, carbonData);
         }
       } else {
-        // General chat with carbon context if available
-        response = await geminiService.sendChatMessage(text, carbonData);
+        // Backend proxy fallback when Gemini isn't configured
+        response = await carbonService.sendChatMessage(text, carbonData);
       }
 
       const botMessage: Message = {
@@ -122,6 +140,7 @@ export const AIChatAssistant = ({ onSuggestion, context, carbonData }: AIChatAss
       };
 
       setMessages(prev => [...prev, botMessage]);
+      requestAnimationFrame(scrollToBottom);
     } catch (error) {
       console.error('Chat error:', error);
       const errorMessage: Message = {
@@ -133,6 +152,7 @@ export const AIChatAssistant = ({ onSuggestion, context, carbonData }: AIChatAss
       };
 
       setMessages(prev => [...prev, errorMessage]);
+      requestAnimationFrame(scrollToBottom);
     } finally {
       setIsLoading(false);
     }
@@ -142,10 +162,10 @@ export const AIChatAssistant = ({ onSuggestion, context, carbonData }: AIChatAss
     sendMessage(question);
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      sendMessage(inputValue);
+      if (!isLoading) sendMessage(inputValue);
     }
   };
 
@@ -189,9 +209,9 @@ export const AIChatAssistant = ({ onSuggestion, context, carbonData }: AIChatAss
             initial={{ scale: 0.8, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.8, opacity: 0, y: 20 }}
-            className="fixed bottom-6 right-6 z-50 w-96 h-[500px]"
+            className="fixed bottom-6 right-6 z-50 w-96 max-w-[95vw] h-[520px] md:h-[560px]"
           >
-            <Card className="h-full shadow-2xl border-0">
+            <Card className="h-full shadow-2xl border-0 flex flex-col">
               <CardHeader className="pb-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -238,9 +258,9 @@ export const AIChatAssistant = ({ onSuggestion, context, carbonData }: AIChatAss
                     exit={{ height: 0, opacity: 0 }}
                     className="flex flex-col h-full"
                   >
-                    <CardContent className="flex-1 p-0 flex flex-col">
+                    <CardContent className="flex-1 p-0 flex flex-col min-h-0">
                       {/* Messages */}
-                      <ScrollArea className="flex-1 p-4">
+                      <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
                         <div className="space-y-4">
                           {messages.map((message) => (
                             <motion.div
@@ -371,13 +391,13 @@ export const AIChatAssistant = ({ onSuggestion, context, carbonData }: AIChatAss
                             ref={inputRef}
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
-                            onKeyPress={handleKeyPress}
+                            onKeyDown={handleKeyDown}
                             placeholder="Ask me about carbon footprints..."
                             disabled={isLoading}
                             className="flex-1"
                           />
                           <Button
-                            onClick={() => sendMessage(inputValue)}
+                            onClick={() => !isLoading && sendMessage(inputValue)}
                             disabled={isLoading || !inputValue.trim()}
                             size="icon"
                             className="bg-green-600 hover:bg-green-700"

@@ -32,7 +32,7 @@ export const HeroSection = ({ onGetStarted, onLearnMore }: HeroSectionProps) => 
           
           <h1 className="text-4xl md:text-6xl font-bold leading-tight">
             Calculate Your{" "}
-            <span className="bg-gradient-primary bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-green-500 via-blue-500 to-green-400 bg-clip-text text-transparent">
               Carbon Footprint
             </span>
           </h1>

@@ -1,8 +1,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Initialize Gemini AI
-const GEMINI_API_KEY = (import.meta as any).env?.VITE_GEMINI_API_KEY || 'AIzaSyDpQDBzz3DpmYzfeEfwY_6lbIlK7Ne5nPs';
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+// Initialize Gemini AI safely (no hardcoded API key)
+const GEMINI_API_KEY = (import.meta as any).env?.VITE_GEMINI_API_KEY as string | undefined;
+const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
 
 export interface CarbonFootprintData {
   total: number;
@@ -22,11 +22,15 @@ export interface ChatMessage {
 }
 
 class GeminiService {
-  private model;
+  private model: ReturnType<GoogleGenerativeAI['getGenerativeModel']> | null;
   private chatHistory: ChatMessage[] = [];
 
   constructor() {
-    this.model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    this.model = genAI ? genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }) : null;
+  }
+
+  isReady(): boolean {
+    return !!this.model;
   }
 
   async getCarbonFootprintAdvice(
@@ -34,6 +38,9 @@ class GeminiService {
     userMessage?: string
   ): Promise<string> {
     try {
+      if (!this.model) {
+        return this.getFallbackResponse(carbonData);
+      }
       const context = this.buildCarbonContext(carbonData);
       const prompt = this.buildAdvicePrompt(context, userMessage);
 
@@ -56,6 +63,13 @@ class GeminiService {
 
   async sendChatMessage(message: string, carbonData?: CarbonFootprintData): Promise<string> {
     try {
+      if (!this.model) {
+        // Fallback simple echo or guidance
+        if (carbonData) {
+          return this.getFallbackResponse(carbonData);
+        }
+        return "I'm currently offline. Ask me after running a calculation for tailored tips.";
+      }
       let prompt = message;
       
       // If carbon data is available, include context
@@ -81,6 +95,9 @@ class GeminiService {
 
   async getPersonalizedRecommendations(carbonData: CarbonFootprintData): Promise<string> {
     try {
+      if (!this.model) {
+        return this.getFallbackRecommendations(carbonData);
+      }
       const context = this.buildCarbonContext(carbonData);
       const prompt = `${context}
 
@@ -104,6 +121,9 @@ Format your response as a clear, numbered list with specific details. Focus on t
 
   async explainCarbonImpact(category: string, value: number, carbonData: CarbonFootprintData): Promise<string> {
     try {
+      if (!this.model) {
+        return `Your ${category} emissions are ${value} kg CO2/year. This represents a significant portion of your carbon footprint. Consider reducing usage and switching to more sustainable alternatives.`;
+      }
       const context = this.buildCarbonContext(carbonData);
       const prompt = `${context}
 

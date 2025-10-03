@@ -20,6 +20,7 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { type CalculationResult } from "@/services/carbonService";
 
 interface CarbonData {
   transport: {
@@ -44,89 +45,27 @@ interface CarbonData {
 
 interface ResultsDashboardProps {
   data: CarbonData;
-  result?: any;
+  result: CalculationResult;
   onRestart: () => void;
 }
 
-export const ResultsDashboard = ({ data, onRestart }: ResultsDashboardProps) => {
+export const ResultsDashboard = ({ data, result, onRestart }: ResultsDashboardProps) => {
   const [actionPlanOpen, setActionPlanOpen] = useState(false);
   const [actionPlan, setActionPlan] = useState<string[]>([]);
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const resultsRef = useRef<HTMLDivElement | null>(null);
 
-  // Simplified carbon calculation (in real app, use scientific emission factors)
-  const calculateEmissions = () => {
-    const transport = (data.transport.carKm * 52 * 0.12) + // kg CO2 per km
-                     (data.transport.flightHours * 90) + // kg CO2 per hour
-                     (data.transport.publicTransport * 52 * 0.03); // kg CO2 per hour
-    
-    const home = (data.home.electricity * 12 * 0.42) + // kg CO2 per kWh
-                 (data.home.gas * 12 * 5.3); // kg CO2 per therm
-    
-    const dietMultiplier = {
-      vegan: 1.5,
-      vegetarian: 2.5,
-      pescatarian: 3.2,
-      mixed: 4.0,
-      'high-meat': 5.5
-    };
-    const diet = (dietMultiplier[data.diet.type as keyof typeof dietMultiplier] || 4.0) * 365;
-    
-    const shopping = (data.shopping.clothing * 0.03) + (data.shopping.electronics * 0.05);
-    
-    return {
-      transport: Math.round(transport),
-      home: Math.round(home),
-      diet: Math.round(diet),
-      shopping: Math.round(shopping),
-      total: Math.round(transport + home + diet + shopping)
-    };
-  };
-
-  const emissions = calculateEmissions();
-  const worldAverage = 4800; // kg CO2 per year
-  const comparisonPercent = Math.round((emissions.total / worldAverage) * 100);
-
-  const recommendations = [
-    {
-      category: "Transport",
-      icon: Car,
-      title: "Switch to electric or hybrid vehicle",
-      impact: "Reduce by 2,300 kg CO₂/year",
-      difficulty: "Medium",
-      description: "Electric vehicles produce 60% fewer emissions than gasoline cars."
-    },
-    {
-      category: "Diet",
-      icon: Utensils,
-      title: "Reduce meat consumption by 50%",
-      impact: "Reduce by 730 kg CO₂/year",
-      difficulty: "Easy",
-      description: "Plant-based meals have significantly lower carbon footprints."
-    },
-    {
-      category: "Home",
-      icon: Home,
-      title: "Switch to renewable energy",
-      impact: "Reduce by 1,200 kg CO₂/year",
-      difficulty: "Medium",
-      description: "Solar panels or green energy plans can dramatically reduce home emissions."
-    },
-    {
-      category: "Shopping",
-      icon: ShoppingBag,
-      title: "Buy less, buy secondhand",
-      impact: "Reduce by 400 kg CO₂/year",
-      difficulty: "Easy",
-      description: "Extending product lifecycles reduces manufacturing emissions."
-    }
-  ];
+  // Use backend-calculated results for consistency
+  const emissions = result.emissions;
+  const worldAverage = result.worldAverage;
+  const comparisonPercent = result.comparison;
+  const recommendationsFromBackend = result.recommendations || [];
 
   const getImpactLevel = (total: number) => {
-    if (total < 3000) return { level: "Low", color: "bg-gradient-success", textColor: "text-green-700" };
-    if (total < 6000) return { level: "Medium", color: "bg-warning", textColor: "text-orange-700" };
-    return { level: "High", color: "bg-destructive", textColor: "text-red-700" };
+    if (total < 3000) return { level: "Low", color: "bg-green-500", textColor: "text-green-700" };
+    if (total < 6000) return { level: "Medium", color: "bg-yellow-500", textColor: "text-orange-700" };
+    return { level: "High", color: "bg-red-500", textColor: "text-red-700" };
   };
 
   const impactLevel = getImpactLevel(emissions.total);
@@ -369,10 +308,11 @@ export const ResultsDashboard = ({ data, onRestart }: ResultsDashboardProps) => 
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {recommendations.map((rec, index) => {
-              const Icon = rec.icon;
-              const difficultyColor = rec.difficulty === 'Easy' ? 'bg-gradient-success' : 'bg-warning';
-              
+            {recommendationsFromBackend.map((rec, index) => {
+              const difficultyColor = rec.difficulty === 'easy' ? 'bg-gradient-success' : rec.difficulty === 'medium' ? 'bg-warning' : 'bg-destructive';
+              const categoryIcon = rec.category?.toLowerCase() === 'transport' ? Car : rec.category?.toLowerCase() === 'home' ? Home : rec.category?.toLowerCase() === 'diet' ? Utensils : ShoppingBag;
+              const Icon = categoryIcon;
+
               return (
                 <Card key={index} className="border-l-4 border-l-primary">
                   <CardContent className="pt-4">
@@ -393,7 +333,7 @@ export const ResultsDashboard = ({ data, onRestart }: ResultsDashboardProps) => 
                         <div className="flex items-center gap-2">
                           <TrendingDown className="w-4 h-4 text-accent" />
                           <span className="text-sm font-medium text-accent">
-                            {rec.impact}
+                            -{rec.impact.toLocaleString()} kg CO₂/year
                           </span>
                         </div>
                       </div>

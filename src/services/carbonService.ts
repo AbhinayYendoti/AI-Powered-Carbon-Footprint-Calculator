@@ -193,19 +193,23 @@ class CarbonService {
       vegetarian: 2.5,
       pescatarian: 3.2,
       mixed: 4.0,
-      'high-meat': 5.5
-    };
-    const diet = (dietMultiplier[data.diet.type as keyof typeof dietMultiplier] || 4.0) * 365;
+      'high-meat': 5.5,
+      none: 0
+    } as const;
+    const normalizedDietType = (data.diet.type || 'none').toLowerCase();
+    const dietPerDay = (dietMultiplier as any)[normalizedDietType] ?? 0;
+    const diet = dietPerDay * 365;
     
     const shopping = (data.shopping.clothing * 0.03) + 
                      (data.shopping.electronics * 0.05);
     
+    const sum = transport + home + diet + shopping;
     const emissions = {
       transport: Math.round(transport),
       home: Math.round(home),
       diet: Math.round(diet),
       shopping: Math.round(shopping),
-      total: Math.round(transport + home + diet + shopping)
+      total: Math.round(sum)
     };
 
     // Basic recommendations
