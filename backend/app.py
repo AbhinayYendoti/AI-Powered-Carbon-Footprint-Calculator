@@ -307,6 +307,15 @@ class CarbonFootprintPredictor:
 # Initialize predictor
 predictor = CarbonFootprintPredictor()
 
+@app.route('/', methods=['GET'])
+def root():
+    """Root endpoint for uptime checks"""
+    return jsonify({
+        'message': 'Carbon Footprint Calculator Backend is Running!',
+        'status': 'ok',
+        'timestamp': datetime.now().isoformat()
+    })
+
 @app.route('/status', methods=['GET'])
 def health_check():
     """Health check endpoint"""
